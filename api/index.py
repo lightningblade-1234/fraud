@@ -10,8 +10,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 from typing import Optional
+import pathlib
 
 from lib.auth import validate_api_key
 from lib.voice_classifier import classify_voice
@@ -31,6 +34,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Get the public directory path
+PUBLIC_DIR = pathlib.Path(__file__).parent.parent / "public"
 
 
 class VoiceDetectionRequest(BaseModel):
@@ -55,17 +61,32 @@ class ErrorResponse(BaseModel):
     message: str
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    """Root endpoint - API info"""
-    return {
-        "status": "ok",
-        "message": "AI Voice Detection API",
-        "version": "1.0.0",
-        "endpoints": {
-            "voice_detection": "POST /api/voice-detection"
-        }
-    }
+    """Serve the main HTML page"""
+    html_file = PUBLIC_DIR / "index.html"
+    if html_file.exists():
+        return FileResponse(html_file, media_type="text/html")
+    else:
+        return HTMLResponse(content="<h1>AI Voice Detection API</h1><p>Frontend not found.</p>")
+
+
+@app.get("/style.css")
+async def get_css():
+    """Serve CSS file"""
+    css_file = PUBLIC_DIR / "style.css"
+    if css_file.exists():
+        return FileResponse(css_file, media_type="text/css")
+    raise HTTPException(status_code=404, detail="CSS file not found")
+
+
+@app.get("/script.js")
+async def get_js():
+    """Serve JavaScript file"""
+    js_file = PUBLIC_DIR / "script.js"
+    if js_file.exists():
+        return FileResponse(js_file, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="JavaScript file not found")
 
 
 @app.get("/api/voice-detection")

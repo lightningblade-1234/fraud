@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Voice Detection | Detect AI vs Human Voice</title>
+    <meta name="description" content="Upload audio files to detect whether a voice is AI-generated or spoken by a real human. Supports Tamil, English, Hindi, Malayalam, and Telugu.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-effects">
+        <div class="gradient-orb orb-1"></div>
+        <div class="gradient-orb orb-2"></div>
+        <div class="gradient-orb orb-3"></div>
+    </div>
+
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="23"/>
+                        <line x1="8" y1="23" x2="16" y2="23"/>
+                    </svg>
+                </div>
+                <h1>AI Voice Detection</h1>
+            </div>
+            <p class="tagline">Detect whether a voice is AI-generated or human</p>
+        </header>
+
+        <main class="main-content">
+            <div class="upload-section">
+                <div class="upload-card">
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                        </div>
+                        <h3>Upload Audio File</h3>
+                        <p>Drag & drop your MP3 file here or click to browse</p>
+                        <input type="file" id="audioFile" accept=".mp3,audio/mp3,audio/mpeg" hidden>
+                        <button class="browse-btn" id="browseBtn">Browse Files</button>
+                    </div>
+                    <div class="file-info" id="fileInfo" style="display: none;">
+                        <div class="file-icon">🎵</div>
+                        <div class="file-details">
+                            <span class="file-name" id="fileName"></span>
+                            <span class="file-size" id="fileSize"></span>
+                        </div>
+                        <button class="remove-file" id="removeFile">✕</button>
+                    </div>
+                </div>
+
+                <div class="options-card">
+                    <h3>Select Language</h3>
+                    <div class="language-grid">
+                        <label class="language-option">
+                            <input type="radio" name="language" value="English" checked>
+                            <span class="language-btn">🇬🇧 English</span>
+                        </label>
+                        <label class="language-option">
+                            <input type="radio" name="language" value="Hindi">
+                            <span class="language-btn">🇮🇳 Hindi</span>
+                        </label>
+                        <label class="language-option">
+                            <input type="radio" name="language" value="Tamil">
+                            <span class="language-btn">🏛️ Tamil</span>
+                        </label>
+                        <label class="language-option">
+                            <input type="radio" name="language" value="Telugu">
+                            <span class="language-btn">🎭 Telugu</span>
+                        </label>
+                        <label class="language-option">
+                            <input type="radio" name="language" value="Malayalam">
+                            <span class="language-btn">🌴 Malayalam</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button class="analyze-btn" id="analyzeBtn" disabled>
+                    <span class="btn-text">Analyze Voice</span>
+                    <span class="btn-loader" style="display: none;">
+                        <svg class="spinner" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31.4 31.4"/>
+                        </svg>
+                        Analyzing...
+                    </span>
+                </button>
+            </div>
+
+            <div class="result-section" id="resultSection" style="display: none;">
+                <div class="result-card" id="resultCard">
+                    <div class="result-header">
+                        <div class="result-icon" id="resultIcon"></div>
+                        <h2 class="result-title" id="resultTitle"></h2>
+                    </div>
+                    <div class="confidence-meter">
+                        <div class="confidence-label">
+                            <span>Confidence Score</span>
+                            <span class="confidence-value" id="confidenceValue"></span>
+                        </div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" id="confidenceFill"></div>
+                        </div>
+                    </div>
+                    <div class="result-explanation">
+                        <h4>Analysis</h4>
+                        <p id="explanationText"></p>
+                    </div>
+                    <div class="result-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Language</span>
+                            <span class="detail-value" id="languageValue"></span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Status</span>
+                            <span class="detail-value status-success">✓ Complete</span>
+                        </div>
+                    </div>
+                    <button class="new-analysis-btn" id="newAnalysisBtn">Analyze Another File</button>
+                </div>
+            </div>
+
+            <div class="error-section" id="errorSection" style="display: none;">
+                <div class="error-card">
+                    <div class="error-icon">⚠️</div>
+                    <h3>Analysis Failed</h3>
+                    <p id="errorMessage"></p>
+                    <button class="retry-btn" id="retryBtn">Try Again</button>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>Supports: Tamil • English • Hindi • Malayalam • Telugu</p>
+            <p class="api-note">Powered by AI Voice Detection API v1.0</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
