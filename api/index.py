@@ -1,23 +1,24 @@
 """
 API Index
 """
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from flask import Flask, jsonify
-
-app = Flask(__name__)
+import json
+from http.server import BaseHTTPRequestHandler
 
 
-@app.route('/', methods=['GET'])
-def index():
-    return jsonify({
-        'status': 'ok',
-        'message': 'AI Voice Detection API',
-        'version': '1.0.0',
-        'endpoints': {
-            'voice_detection': 'POST /api/voicedetection'
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        response = {
+            'status': 'ok',
+            'message': 'AI Voice Detection API',
+            'version': '1.0.0',
+            'endpoints': {
+                'voice_detection': 'POST /api/voicedetection'
+            }
         }
-    })
+        self.wfile.write(json.dumps(response).encode('utf-8'))
+    
+    def log_message(self, format, *args):
+        pass
