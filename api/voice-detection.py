@@ -6,97 +6,95 @@ Accepts Base64-encoded MP3 audio and classifies as AI_GENERATED or HUMAN.
 """
 import sys
 import os
+import json
 
 # Add lib to path for Vercel
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
-from pydantic import ValidationError
 
 from lib.models import VoiceDetectionRequest, VoiceDetectionResponse, ErrorResponse
 from lib.auth import validate_api_key
 from lib.voice_classifier import classify_voice
 
 
-app = FastAPI()
-
-
-@app.post("/api/voice-detection")
-async def voice_detection(request: Request):
+def handler(request):
     """
-    Detect whether a voice sample is AI-generated or Human.
+    Vercel serverless function handler.
+    """
+    from http.server import BaseHTTPRequestHandler
     
-    Headers:
-        x-api-key: API key for authentication
-        
-    Body:
-        language: Tamil | English | Hindi | Malayalam | Telugu
-        audioFormat: mp3
-        audioBase64: Base64 encoded MP3 audio
-        
-    Returns:
-        JSON response with classification result
-    """
+    # Only accept POST requests
+    if request.method != 'POST':
+        return {
+            'statusCode': 405,
+            'body': json.dumps({'status': 'error', 'message': 'Method not allowed'})
+        }
+    
     # Validate API key
-    api_key = request.headers.get("x-api-key")
+    api_key = request.headers.get('x-api-key')
     if not validate_api_key(api_key):
-        return JSONResponse(
-            status_code=401,
-            content=ErrorResponse(
-                message="Invalid API key or malformed request"
-            ).model_dump()
-        )
+        return {
+            'statusCode': 401,
+            'body': json.dumps({'status': 'error', 'message': 'Invalid API key or malformed request'})
+        }
     
     try:
         # Parse request body
-        body = await request.json()
-        voice_request = VoiceDetectionRequest(**body)
+        body = json.loads(request.body)
+        
+        # Validate request
+        language = body.get('language')
+        audio_format = body.get('audioFormat')
+        audio_base64 = body.get('audioBase64')
+        
+        # Check required fields
+        if not language or not audio_format or not audio_base64:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'status': 'error', 'message': 'Missing required fields'})
+            }
+        
+        # Validate language
+        valid_languages = ['Tamil', 'English', 'Hindi', 'Malayalam', 'Telugu']
+        if language not in valid_languages:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'status': 'error', 'message': f'Invalid language. Must be one of: {", ".join(valid_languages)}'})
+            }
+        
+        # Validate audio format
+        if audio_format != 'mp3':
+            return {
+                'statusCode': 400,
+                'body': json.dumps({'status': 'error', 'message': 'audioFormat must be mp3'})
+            }
         
         # Classify the voice
         result = classify_voice(
-            audio_base64=voice_request.audioBase64,
-            language=voice_request.language
+            audio_base64=audio_base64,
+            language=language
         )
         
         # Build response
-        response = VoiceDetectionResponse(
-            language=voice_request.language,
-            classification=result["classification"],
-            confidenceScore=result["confidenceScore"],
-            explanation=result["explanation"]
-        )
+        response = {
+            'status': 'success',
+            'language': language,
+            'classification': result['classification'],
+            'confidenceScore': result['confidenceScore'],
+            'explanation': result['explanation']
+        }
         
-        return JSONResponse(
-            status_code=200,
-            content=response.model_dump()
-        )
+        return {
+            'statusCode': 200,
+            'body': json.dumps(response)
+        }
         
-    except ValidationError as e:
-        return JSONResponse(
-            status_code=400,
-            content=ErrorResponse(
-                message=f"Invalid request: {str(e.errors()[0]['msg'])}"
-            ).model_dump()
-        )
-    except ValueError as e:
-        return JSONResponse(
-            status_code=400,
-            content=ErrorResponse(
-                message=f"Invalid request: {str(e)}"
-            ).model_dump()
-        )
+    except json.JSONDecodeError:
+        return {
+            'statusCode': 400,
+            'body': json.dumps({'status': 'error', 'message': 'Invalid JSON body'})
+        }
     except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content=ErrorResponse(
-                message="Internal server error"
-            ).model_dump()
-        )
-
-
-# Health check endpoint
-@app.get("/api/health")
-async def health():
-    """Health check endpoint."""
-    return {"status": "ok"}
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'status': 'error', 'message': 'Internal server error'})
+        }
