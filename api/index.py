@@ -1,5 +1,6 @@
 """
-Health check / index endpoint
+API Index / Router
+Routes to appropriate endpoint
 """
 from http.server import BaseHTTPRequestHandler
 import json
@@ -12,8 +13,9 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps({
             'status': 'ok',
-            'message': 'AI Voice Detection API is running',
+            'message': 'AI Voice Detection API',
+            'version': '1.0.0',
             'endpoints': {
-                'voice_detection': 'POST /api/voice-detection'
+                'voice_detection': 'POST /api/voicedetection'
             }
         }).encode('utf-8'))
