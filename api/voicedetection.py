@@ -27,7 +27,7 @@ class handler(BaseHTTPRequestHandler):
         """Handle GET request"""
         self.send_json_response(200, {
             'status': 'ok',
-            'message': 'Voice Detection API - Use POST to classify audio',
+            'message': 'VOICEDETECTION.PY - Voice Detection API v2 - Use POST',
             'imports_ok': IMPORTS_OK
         })
 
