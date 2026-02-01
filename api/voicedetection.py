@@ -1,87 +1,97 @@
 """
-Voice Detection API - Flask with WSGI handler for Vercel
+Voice Detection API - Pure BaseHTTPRequestHandler for Vercel
+No external dependencies except standard library
 """
 import sys
 import os
 import json
 from http.server import BaseHTTPRequestHandler
-from io import BytesIO
 
 # Add lib to path for Vercel
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from flask import Flask, request, jsonify
-from lib.auth import validate_api_key
-from lib.voice_classifier import classify_voice
+# Import after path setup
+try:
+    from lib.auth import validate_api_key
+    from lib.voice_classifier import classify_voice
+    IMPORTS_OK = True
+except ImportError as e:
+    IMPORTS_OK = False
+    IMPORT_ERROR = str(e)
 
-app = Flask(__name__)
 
-
-@app.route('/', defaults={'path': ''}, methods=['GET', 'POST', 'OPTIONS'])
-@app.route('/<path:path>', methods=['GET', 'POST', 'OPTIONS'])
-def catch_all(path):
-    """Handle all requests"""
+class handler(BaseHTTPRequestHandler):
+    """Vercel Python serverless handler - must be named 'handler' lowercase"""
     
-    # Handle OPTIONS (CORS preflight)
-    if request.method == 'OPTIONS':
-        response = jsonify({})
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, x-api-key'
-        return response
-    
-    # Handle GET
-    if request.method == 'GET':
-        return jsonify({
+    def do_GET(self):
+        """Handle GET request"""
+        self.send_json_response(200, {
             'status': 'ok',
-            'message': 'Voice Detection API - Send POST with audio to classify'
+            'message': 'Voice Detection API - Use POST to classify audio',
+            'imports_ok': IMPORTS_OK
         })
-    
-    # Handle POST
-    if request.method == 'POST':
-        # Validate API key
-        api_key = request.headers.get('x-api-key')
-        if not validate_api_key(api_key):
-            return jsonify({
+
+    def do_POST(self):
+        """Handle POST request for voice classification"""
+        if not IMPORTS_OK:
+            self.send_json_response(500, {
                 'status': 'error',
-                'message': 'Invalid API key or malformed request'
-            }), 401
+                'message': f'Import error: {IMPORT_ERROR}'
+            })
+            return
         
         try:
-            data = request.get_json(force=True)
+            # Get content length
+            content_length = int(self.headers.get('Content-Length', 0))
             
-            if not data:
-                return jsonify({
+            # Validate API key
+            api_key = self.headers.get('x-api-key')
+            if not validate_api_key(api_key):
+                self.send_json_response(401, {
                     'status': 'error',
-                    'message': 'Request body is required'
-                }), 400
+                    'message': 'Invalid API key or malformed request'
+                })
+                return
             
+            # Read and parse body
+            body = self.rfile.read(content_length)
+            data = json.loads(body.decode('utf-8'))
+            
+            # Extract and validate fields
             language = data.get('language')
             audio_format = data.get('audioFormat')
             audio_base64 = data.get('audioBase64')
             
             if not language or not audio_format or not audio_base64:
-                return jsonify({
+                self.send_json_response(400, {
                     'status': 'error',
                     'message': 'Missing required fields: language, audioFormat, audioBase64'
-                }), 400
+                })
+                return
             
             valid_languages = ['Tamil', 'English', 'Hindi', 'Malayalam', 'Telugu']
             if language not in valid_languages:
-                return jsonify({
+                self.send_json_response(400, {
                     'status': 'error',
                     'message': f'Invalid language. Must be one of: {", ".join(valid_languages)}'
-                }), 400
+                })
+                return
             
             if audio_format != 'mp3':
-                return jsonify({
+                self.send_json_response(400, {
                     'status': 'error',
                     'message': 'audioFormat must be mp3'
-                }), 400
+                })
+                return
             
-            result = classify_voice(audio_base64=audio_base64, language=language)
+            # Classify the voice
+            result = classify_voice(
+                audio_base64=audio_base64,
+                language=language
+            )
             
-            return jsonify({
+            # Send success response
+            self.send_json_response(200, {
                 'status': 'success',
                 'language': language,
                 'classification': result['classification'],
@@ -89,92 +99,33 @@ def catch_all(path):
                 'explanation': result['explanation']
             })
             
+        except json.JSONDecodeError:
+            self.send_json_response(400, {
+                'status': 'error',
+                'message': 'Invalid JSON body'
+            })
         except Exception as e:
-            return jsonify({
+            self.send_json_response(500, {
                 'status': 'error',
                 'message': f'Internal server error: {str(e)}'
-            }), 500
-    
-    return jsonify({'status': 'error', 'message': 'Method not allowed'}), 405
-
-
-class handler(BaseHTTPRequestHandler):
-    """
-    Vercel handler that wraps Flask WSGI application.
-    This properly handles all HTTP methods through Flask.
-    """
-    
-    def _handle_request(self):
-        """Common handler for all HTTP methods"""
-        # Build WSGI environ
-        content_length = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(content_length) if content_length > 0 else b''
-        
-        environ = {
-            'REQUEST_METHOD': self.command,
-            'PATH_INFO': self.path,
-            'QUERY_STRING': '',
-            'CONTENT_TYPE': self.headers.get('Content-Type', ''),
-            'CONTENT_LENGTH': content_length,
-            'SERVER_NAME': 'localhost',
-            'SERVER_PORT': '443',
-            'HTTP_HOST': self.headers.get('Host', ''),
-            'wsgi.input': BytesIO(body),
-            'wsgi.errors': sys.stderr,
-            'wsgi.url_scheme': 'https',
-            'wsgi.version': (1, 0),
-            'wsgi.run_once': True,
-            'wsgi.multithread': True,
-            'wsgi.multiprocess': True,
-        }
-        
-        # Add all HTTP headers to environ
-        for key, value in self.headers.items():
-            key = key.upper().replace('-', '_')
-            if key not in ('CONTENT_TYPE', 'CONTENT_LENGTH'):
-                environ[f'HTTP_{key}'] = value
-        
-        # Capture Flask response
-        response_body = []
-        response_headers = []
-        response_status = [None]
-        
-        def start_response(status, headers, exc_info=None):
-            response_status[0] = status
-            response_headers.extend(headers)
-            return response_body.append
-        
-        # Call Flask app
-        result = app(environ, start_response)
-        
-        # Get response body
-        for data in result:
-            response_body.append(data)
-        
-        # Parse status code
-        status_code = int(response_status[0].split(' ')[0])
-        
-        # Send response
-        self.send_response(status_code)
-        for header_name, header_value in response_headers:
-            self.send_header(header_name, header_value)
-        self.end_headers()
-        
-        # Write body
-        for chunk in response_body:
-            if isinstance(chunk, bytes):
-                self.wfile.write(chunk)
-            elif isinstance(chunk, str):
-                self.wfile.write(chunk.encode('utf-8'))
-    
-    def do_GET(self):
-        self._handle_request()
-    
-    def do_POST(self):
-        self._handle_request()
+            })
     
     def do_OPTIONS(self):
-        self._handle_request()
+        """Handle CORS preflight"""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, x-api-key')
+        self.end_headers()
+    
+    def send_json_response(self, status_code, data):
+        """Helper to send JSON response"""
+        self.send_response(status_code)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode('utf-8'))
     
     def log_message(self, format, *args):
+        """Suppress default logging"""
         pass
