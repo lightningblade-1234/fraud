@@ -1,21 +1,24 @@
 """
-API Index / Router
-Routes to appropriate endpoint
+API Index
 """
-from http.server import BaseHTTPRequestHandler
-import json
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from flask import Flask, jsonify
+
+app = Flask(__name__)
 
 
-class handler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps({
-            'status': 'ok',
-            'message': 'AI Voice Detection API',
-            'version': '1.0.0',
-            'endpoints': {
-                'voice_detection': 'POST /api/voicedetection'
-            }
-        }).encode('utf-8'))
+@app.route('/api', methods=['GET'])
+@app.route('/api/', methods=['GET'])
+def index():
+    return jsonify({
+        'status': 'ok',
+        'message': 'AI Voice Detection API',
+        'version': '1.0.0',
+        'endpoints': {
+            'voice_detection': 'POST /api/voicedetection'
+        }
+    })

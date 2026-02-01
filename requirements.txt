@@ -1,3 +1,4 @@
 pydantic==2.5.3
 numpy==1.26.3
 python-dotenv==1.0.0
+flask==3.0.0
