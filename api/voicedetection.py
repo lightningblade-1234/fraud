@@ -17,7 +17,7 @@ from lib.voice_classifier import classify_voice
 app = Flask(__name__)
 
 
-@app.route('/api/voicedetection', methods=['GET', 'POST'])
+@app.route('/', methods=['GET', 'POST'])
 def voice_detection():
     """Handle voice detection requests"""
     
